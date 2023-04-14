@@ -13,6 +13,27 @@ class Scanner {
     private int start = 0;
     private int current = 0;
     private int line = 1;
+    private static final Map<String, TokenType> keywords;
+
+    static {
+        keywords = new HashMap<>();
+        keywords.put("and", AND);
+        keywords.put("class", CLASS);
+        keywords.put("else", ELSE);
+        keywords.put("false", FALSE);
+        keywords.put("for", FOR);
+        keywords.put("fun", FUN);
+        keywords.put("if", IF);
+        keywords.put("nil", NIL);
+        keywords.put("or", OR);
+        keywords.put("print", PRINT);
+        keywords.put("return", RETURN);
+        keywords.put("super", SUPER);
+        keywords.put("this", THIS);
+        keywords.put("true", TRUE);
+        keywords.put("var", VAR);
+        keywords.put("while", WHILE);
+    }
 
     Scanner(String source) {
         this.source = source;
@@ -26,6 +47,50 @@ class Scanner {
 
         tokens.add(new Token(EOF, "", null, line)); // EOF token at then end
         return tokens;
+    }
+
+    private void identifier() {
+        while (isAlphaNumeric(peek())) advance();
+
+        String text = source.substring(start, current);
+        TokenType type = keywords.get(text);
+        if (type == null) type = IDENTIFIER;
+        addToken(type);
+    }
+
+    private void string() {
+        while (peek() != '"' && !isAtEnd()) {
+
+            if (peek() == '\n') line++;
+            advance();
+        }
+
+        if (isAtEnd()) {
+            Lox.error(line, "Unterminated string.");
+            return;
+        }
+
+        // Closing "
+        advance();
+
+        // Trim quotes
+        String value = source.substring(start + 1, current - 1);
+
+        addToken(STRING, value);
+    }
+
+    private void number() {
+        while (isDigit(peek())) advance();
+
+        // Fractions
+        if (peek() == '.' && isDigit(peekNext())) {
+            advance(); // Consume dot
+
+            while (isDigit(peek())) advance();
+        }
+
+        addToken(NUMBER,
+                Double.parseDouble(source.substring(start, current)));
     }
 
     private void scanToken() {
@@ -68,7 +133,15 @@ class Scanner {
                 line++;
                 break;
 
-            default: Lox.error(line, "Unexpected character."); break;
+            default:
+                if (isDigit(c)) {
+                    number();
+                } else if (isAlpha(c)) {
+                    identifier();
+                } else {
+                    Lox.error(line, "Unexpected character.");
+                }
+                break;
         }
 
     }
@@ -103,24 +176,22 @@ class Scanner {
         return source.charAt(current);
     }
 
-    private void string() {
-        while (peek() != '"' && !isAtEnd()) {
+    private char peekNext() {
+        if (current + 1 >= source.length()) return '\0';
+        return source.charAt(current + 1);
+    }
 
-            if (peek() == '\n') line++;
-            advance();
-        }
+    private boolean isAlpha(char c) {
+        return (c >= 'a' && c <= 'z') ||
+               (c >= 'a' && c <= 'Z') ||
+               c == '_';
+    }
 
-        if (isAtEnd()) {
-            Lox.error(line, "Unterminated string.");
-            return;
-        }
+    private boolean isAlphaNumeric(char c) {
+        return isAlpha(c) || isDigit(c);
+    }
 
-        // Closing "
-        advance();
-
-        // Trim quotes
-        String value = source.substring(start + 1, current - 1);
-
-        addToken(STRING, value);
+    private boolean isDigit(char c) {
+        return c >= '0' && c <= '9'; // Character.isDigit() is too general
     }
 }
